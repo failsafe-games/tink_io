@@ -42,7 +42,7 @@ abstract Source(SourceObject) from SourceObject to SourceObject {
   public inline function parseWhile<T>(parser:StreamParser<T>, consumer:T->Future<Bool>):Surprise<Source, Error>
     return this.parseWhile(parser, consumer);
     
-  public inline function parseStream<T>(parser:StreamParser<NullOr<T>>, ?rest:Callback<Source>):Stream<T>
+  public inline function parseStream<T>(parser:StreamParser<NullOr<T>>, ?rest:Callback<Source>):Stream<T, Error>
     return this.parseStream(parser, rest);
      
   public inline function split(delim:Bytes):Pair<Source, Source>
@@ -130,7 +130,7 @@ interface SourceObject {
   
   function parse<T>(parser:StreamParser<T>):Surprise<{ data:T, rest: Source }, Error>;
   function parseWhile<T>(parser:StreamParser<T>, cond:T->Future<Bool>):Surprise<Source, Error>;
-  function parseStream<T>(parser:StreamParser<NullOr<T>>, ?rest:Callback<Source>):Stream<T>;
+  function parseStream<T>(parser:StreamParser<NullOr<T>>, ?rest:Callback<Source>):Stream<T, Error>;
   function split(delim:Bytes):Pair<Source, Source>;
   
 }
@@ -212,7 +212,7 @@ class SourceBase implements SourceObject {
   public function parseWhile<T>(parser:StreamParser<T>, cond:T->Future<Bool>):Surprise<Source, Error>
     return new ParserSink(parser, cond).parse(this);
     
-  public function parseStream<T>(parser:StreamParser<T>, ?rest:Callback<Source>):Stream<T>
+  public function parseStream<T>(parser:StreamParser<T>, ?rest:Callback<Source>):Stream<T, Error>
     return new ParserStream(this, parser, rest);
     
   public function split(delim:Bytes):Pair<Source, Source> {
@@ -225,7 +225,7 @@ class SourceBase implements SourceObject {
   }
 }
 
-private class ParserStream<T> extends tink.streams.Stream.StreamBase<T> {
+private class ParserStream<T> extends tink.streams.Stream.StreamBase<T, Error> {
   var source:Source;
   var parser:StreamParser<Null<T>>;
   var handleRest:Callback<Source>;
@@ -236,7 +236,7 @@ private class ParserStream<T> extends tink.streams.Stream.StreamBase<T> {
     this.handleRest = handleRest;
   }
   
-  override public function forEachAsync(item:T->Future<Bool>):Surprise<Bool, Error>
+  public function forEachAsync(item:T->Future<Bool>):Surprise<Bool, Error>
     return Future.async(function (finished) {
       var done = false;
       source.parseWhile(parser, function (v) 
